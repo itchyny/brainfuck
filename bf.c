@@ -1,6 +1,12 @@
 #include <stdio.h>
+#include <string.h>
+int p[128];
+char hello[256] = "+++++++++[>++++++++>+++++++++++>+++++<<<-]>.>++.+++++++..+++.>-.------------.<++++++++.--------.+++.------.--------.>+.";
+char buffer[10000];
+char buf[256];
+FILE* fp;
 
-int run(char* c, int* p) {
+int run(char c[], int* p) {
   int num;
   while (*c) {
     switch(*c) {
@@ -11,46 +17,45 @@ int run(char* c, int* p) {
       case '.': putchar(*p); break;
       case '[':
         if (*p == 0) {
-          num = 0;
-          while (1) {
+          num = 1;
+          while (num > 0) {
             c++;
-            if (*c == '[') {
-              num++;
-            } else if (*c == ']') {
-              if (num == 0) {
-                break;
-              }
-              num--;
-            }
+            if (*c == '[') num++;
+            else if (*c == ']') num--;
           }
         }
         break;
       case ']':
         if (*p != 0) {
-          num = 0;
-          while (1) {
+          num = 1;
+          while (num > 0) {
             c--;
-            if (*c == ']') {
-              num++;
-            } else if (*c == '[') {
-              if (num == 0) {
-                break;
-              }
-              num--;
-            }
+            if (*c == ']') num++;
+            else if (*c == '[') num--;
           }
         }
         break;
-      default: /*do nothing*/
-        break;
+      default: break;
     }
     c++;
   }
-  return 1;
+  return 0;
 }
-int p[128];
-char *input = "+++++++++[>++++++++>+++++++++++>+++++<<<-]>.>++.+++++++..+++.>-.------------.<++++++++.--------.+++.------.--------.>+.";
-int main(void) {
-  run(input, p);
+
+int main(int argc, char *argv[]) {
+  if (argc < 2) {
+    run(hello, p);
+  } else {
+    if ((fp = fopen(argv[1], "r")) == NULL) {
+      run(argv[1], p);
+      return 0;
+    }
+    while (fgets(buf, 255, fp) != NULL) {
+      strcat(buffer, buf);
+    }
+    fclose(fp);
+    run(buffer, p);
+  }
+  return 0;
 }
 
