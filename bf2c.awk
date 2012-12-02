@@ -1,4 +1,4 @@
-#!/sw/bin/awk -f
+#! /usr/bin/awk -f
 # awk -f bf2c.awk hello.bf > a.c && gcc a.c && ./a.out
 
 BEGIN {
