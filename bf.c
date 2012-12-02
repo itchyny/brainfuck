@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <string.h>
-int p[128];
+char p[10000];
 char hello[256] = "+++++++++[>++++++++>+++++++++++>+++++<<<-]>.>++.+++++++..+++.>-.------------.<++++++++.--------.+++.------.--------.>+.";
 char buffer[10000];
 char buf[256];
 FILE* fp;
 
-int run(char c[], int* p) {
+int run(char c[], char* p) {
   int num;
   while (*c) {
     switch(*c) {
@@ -15,6 +15,7 @@ int run(char c[], int* p) {
       case '>': p++; break;
       case '<': p--; break;
       case '.': putchar(*p); break;
+      case ',': *p = getchar(); break;
       case '[':
         if (*p == 0) {
           num = 1;
