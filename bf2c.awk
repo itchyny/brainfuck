@@ -9,8 +9,6 @@ BEGIN {
 }
 
 {
-  #Note: the order in which these are
-  #substituted is very important.
   gsub(/\]/, "  }\n");
   gsub(/\[/, "  while(p[pc] != 0) {\n");
   gsub(/\+/, "  ++p[pc];\n");
