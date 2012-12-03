@@ -1,19 +1,33 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-char p[10000];
+char p[10005];
 char hello[256] = "+++++++++[>++++++++>+++++++++++>+++++<<<-]>.>++.+++++++..+++.>-.------------.<++++++++.--------.+++.------.--------.>+.";
 char buffer[10000];
 char buf[256];
 FILE* fp;
 
 int run(char c[], char* p) {
+  char *pstart, *pend;
   int num;
+  pstart = p;
+  pend = p + 10000;
   while (*c) {
     switch(*c) {
       case '+': (*p)++; break;
       case '-': (*p)--; break;
-      case '>': p++; break;
-      case '<': p--; break;
+      case '>': p++;
+                if (p > pend) {
+                  fprintf(stderr, "error: out of memory");
+                  exit(1);
+                };
+                break;
+      case '<': p--;
+                if (p < pstart) {
+                  fprintf(stderr, "error: negative address access");
+                  exit(1);
+                };
+                break;
       case '.': putchar(*p); break;
       case ',': *p = getchar(); break;
       case '[':
