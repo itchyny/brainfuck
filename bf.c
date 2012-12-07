@@ -54,6 +54,7 @@ int run(char c[], char* p) {
     }
     c++;
   }
+  printf("\n");
   return 0;
 }
 
