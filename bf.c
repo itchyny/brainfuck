@@ -3,9 +3,9 @@
 #include <string.h>
 char p[10005];
 char hello[256] = "+++++++++[>++++++++>+++++++++++>+++++<<<-]>.>++.+++++++..+++.>-.------------.<++++++++.--------.+++.------.--------.>+.";
-char buffer[10000];
+char buffer[100000];
 char buf[256];
-int jumper[10005];
+int cache[100005];
 FILE* fp;
 
 int run(char c[], char* p) {
@@ -18,13 +18,57 @@ int run(char c[], char* p) {
     switch(*c) {
       case '+': (*p)++; break;
       case '-': (*p)--; break;
-      case '>': p++;
+      /*case '+': pos = c - cstart;
+                if (cache[pos]) {
+                  c += cache[pos] - 1;
+                } else {
+                  do {
+                    c++;
+                    cache[pos]++;
+                  } while (*c == '+');
+                  c--;
+                }
+                (*p) += cache[pos];
+                break;
+      case '-': pos = c - cstart;
+                if (cache[pos]) {
+                  c += cache[pos] - 1;
+                } else {
+                  do {
+                    c++;
+                    cache[pos]++;
+                  } while (*c == '-');
+                  c--;
+                }
+                (*p) -= cache[pos];
+                break;*/
+      case '>': pos = c - cstart;
+                if (cache[pos]) {
+                  c += cache[pos] - 1;
+                } else {
+                  do {
+                    c++;
+                    cache[pos]++;
+                  } while (*c == '>');
+                  c--;
+                }
+                p += cache[pos];
                 if (p > pend) {
                   fprintf(stderr, "error: out of memory");
                   exit(1);
                 };
                 break;
-      case '<': p--;
+      case '<': pos = c - cstart;
+                if (cache[pos]) {
+                  c += cache[pos] - 1;
+                } else {
+                  do {
+                    c++;
+                    cache[pos]++;
+                  } while (*c == '<');
+                  c--;
+                }
+                p -= cache[pos];
                 if (p < pstart) {
                   fprintf(stderr, "error: negative address access");
                   exit(1);
@@ -36,18 +80,18 @@ int run(char c[], char* p) {
         if (*p == 0) {
           num = 1;
           pos = c - cstart;
-          if (jumper[pos]) {
-            c += jumper[pos];
+          if (cache[pos]) {
+            c += cache[pos];
           } else if (c[1] == '-' && c[2] == ']') {
             c++; c++; *p = 0;
-            jumper[c - cstart] = jumper[pos] = 2;
+            cache[c - cstart] = cache[pos] = 2;
           } else {
             while (num > 0) {
               c++;
               if (*c == '[') num++;
               else if (*c == ']') num--;
             }
-            jumper[c - cstart] = jumper[pos] = c - cstart - pos;
+            cache[c - cstart] = cache[pos] = c - cstart - pos;
           }
         }
         break;
@@ -55,15 +99,15 @@ int run(char c[], char* p) {
         if (*p != 0) {
           num = 1;
           pos = c - cstart;
-          if (jumper[pos]) {
-            c -= jumper[pos];
+          if (cache[pos]) {
+            c -= cache[pos];
           } else {
             while (num > 0) {
               c--;
               if (*c == ']') num++;
               else if (*c == '[') num--;
             }
-            jumper[c - cstart] = jumper[pos] = - (c - cstart - pos);
+            cache[c - cstart] = cache[pos] = - (c - cstart - pos);
           }
         }
         break;
