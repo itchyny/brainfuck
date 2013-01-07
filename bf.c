@@ -42,6 +42,8 @@ int run(char c[], char* p) {
                 }
                 (*p) -= cache[pos];
                 break;*/
+      /*case '>': p++; break;
+      case '<': p--; break;*/
       case '>': pos = c - cstart;
                 if (cache[pos]) {
                   c += cache[pos] - 1;
@@ -78,7 +80,6 @@ int run(char c[], char* p) {
       case ',': *p = getchar(); break;
       case '[':
         if (*p == 0) {
-          num = 1;
           pos = c - cstart;
           if (cache[pos]) {
             c += cache[pos];
@@ -86,6 +87,7 @@ int run(char c[], char* p) {
             c++; c++; *p = 0;
             cache[c - cstart] = cache[pos] = 2;
           } else {
+            num = 1;
             while (num > 0) {
               c++;
               if (*c == '[') num++;
@@ -97,11 +99,11 @@ int run(char c[], char* p) {
         break;
       case ']':
         if (*p != 0) {
-          num = 1;
           pos = c - cstart;
           if (cache[pos]) {
             c -= cache[pos];
           } else {
+            num = 1;
             while (num > 0) {
               c--;
               if (*c == ']') num++;
