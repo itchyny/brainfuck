@@ -5,13 +5,15 @@ char p[10005];
 char hello[256] = "+++++++++[>++++++++>+++++++++++>+++++<<<-]>.>++.+++++++..+++.>-.------------.<++++++++.--------.+++.------.--------.>+.";
 char buffer[10000];
 char buf[256];
+int jumper[10005];
 FILE* fp;
 
 int run(char c[], char* p) {
-  char *pstart, *pend;
-  int num;
+  char *pstart, *pend, *cstart;
+  int num; long pos;
   pstart = p;
   pend = p + 10000;
+  cstart = c;
   while (*c) {
     switch(*c) {
       case '+': (*p)++; break;
@@ -33,20 +35,35 @@ int run(char c[], char* p) {
       case '[':
         if (*p == 0) {
           num = 1;
-          while (num > 0) {
-            c++;
-            if (*c == '[') num++;
-            else if (*c == ']') num--;
+          pos = c - cstart;
+          if (jumper[pos]) {
+            c += jumper[pos];
+          } else if (c[1] == '-' && c[2] == ']') {
+            c++; c++; *p = 0;
+            jumper[c - cstart] = jumper[pos] = 2;
+          } else {
+            while (num > 0) {
+              c++;
+              if (*c == '[') num++;
+              else if (*c == ']') num--;
+            }
+            jumper[c - cstart] = jumper[pos] = c - cstart - pos;
           }
         }
         break;
       case ']':
         if (*p != 0) {
           num = 1;
-          while (num > 0) {
-            c--;
-            if (*c == ']') num++;
-            else if (*c == '[') num--;
+          pos = c - cstart;
+          if (jumper[pos]) {
+            c -= jumper[pos];
+          } else {
+            while (num > 0) {
+              c--;
+              if (*c == ']') num++;
+              else if (*c == '[') num--;
+            }
+            jumper[c - cstart] = jumper[pos] = - (c - cstart - pos);
           }
         }
         break;
