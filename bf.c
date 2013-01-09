@@ -15,7 +15,7 @@ int run(char c[], char* p) {
   pend = p + 10000;
   cstart = c;
   while (*c) {
-    switch(*c) {
+    switch (*c) {
       case '+': (*p)++; break;
       case '-': (*p)--; break;
       /*case '+': pos = c - cstart;
@@ -117,7 +117,6 @@ int run(char c[], char* p) {
     }
     c++;
   }
-  printf("\n");
   return 0;
 }
 
