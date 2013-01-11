@@ -131,7 +131,7 @@ int run(char c[], char* p) {
           linex++;
         }
       }
-      fprintf(stderr, "%s:%d:%d: error: infinite loop", filename, liney, linex);
+      fprintf(stderr, "%s:%d:%d: error: infinite loop\n", filename, liney, linex);
       exit(1);
     }
   }
