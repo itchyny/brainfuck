@@ -5,12 +5,15 @@ char p[10005];
 char hello[256] = "+++++++++[>++++++++>+++++++++++>+++++<<<-]>.>++.+++++++..+++.>-.------------.<++++++++.--------.+++.------.--------.>+.";
 char buffer[100000];
 char buf[256];
+char* filename;
 int cache[100005];
 FILE* fp;
 
 int run(char c[], char* p) {
   char *pstart, *pend, *cstart;
-  int num; long pos;
+  int num, linex, liney; long pos, m, i;
+  linex = liney = 0;
+  m = 0;
   pstart = p;
   pend = p + 10000;
   cstart = c;
@@ -116,6 +119,21 @@ int run(char c[], char* p) {
       default: break;
     }
     c++;
+    m++;
+    if (m > 99999999) {
+      linex = 1;
+      liney = 1;
+      for (i = 0; i < c - cstart; i++) {
+        if (cstart[i] == '\n') {
+          linex = 1;
+          liney++;
+        } else {
+          linex++;
+        }
+      }
+      printf("%s:%d:%d: error: infinite loop", filename, liney, linex);
+      exit(1);
+    }
   }
   return 0;
 }
@@ -125,9 +143,11 @@ int main(int argc, char *argv[]) {
     run(hello, p);
   } else {
     if ((fp = fopen(argv[1], "r")) == NULL) {
+      filename = "argv[1]";
       run(argv[1], p);
       return 0;
     }
+    filename = argv[1];
     while (fgets(buf, 255, fp) != NULL) {
       strcat(buffer, buf);
     }
