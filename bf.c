@@ -110,8 +110,7 @@ int run(char c[], char* p) {
   }
   return 0;
 ERR:
-  linex = 1;
-  liney = 1;
+  linex = liney = 1;
   for (i = 0; i < c - cstart; i++) {
     if (cstart[i] == '\n') {
       linex = 1;
