@@ -2,9 +2,9 @@
 # sed -f bf2c.sed hello.bf > a.c && gcc a.c && ./a.out
 
 1i\
-  #include <stdio.h>\
-  int p[100];\
-  int main() {\
+#include <stdio.h>\
+int p[100];\
+int main() {\
   int pc = 0;
 
 
@@ -27,5 +27,5 @@ s/\,/  p[pc] = getchar();\
 
 a\
   return 0;\
-  }
+}
 

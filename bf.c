@@ -14,12 +14,14 @@ FILE* fp;
 char errorinf[50] = "bf:%s:%d:%d: error: infinite loop\n";
 char errorneg[50] = "bf:%s:%d:%d: error: negative address access\n";
 char errorout[50] = "bf:%s:%d:%d: error: out of memory\n";
+char error[50] = "bf:%s:%d:%d: error\n";
 
 int run(char c[], char* p) {
   char *pstart, *pend, *cstart, *err;
   int num, linex, liney;
   long pos, i;
   long long m;
+  err = error;
   linex = liney = 0;
   m = 0;
   pstart = p;
@@ -27,8 +29,8 @@ int run(char c[], char* p) {
   cstart = c;
   while (*c) {
     switch (*c) {
-      case '+': (*p)++; break;
-      case '-': (*p)--; break;
+      case '+': if ((*p) > 126){}; (*p)++; break;
+      case '-': if (*p == 0){}; (*p)--; break;
       case '>': pos = c - cstart;
                 if (cache[pos]) {
                   c += cache[pos] - 1;
