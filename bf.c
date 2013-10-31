@@ -3,7 +3,7 @@
 #include <string.h>
 #define CODESIZE 3000005
 #define MEMORYSIZE 100005
-#define LOOPMAX 10000000000
+#define LOOPMAX 1000000000
 char p[MEMORYSIZE];
 char buffer[CODESIZE];
 int cache[CODESIZE];
