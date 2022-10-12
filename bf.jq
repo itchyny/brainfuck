@@ -1,36 +1,65 @@
-# cat hello.bf | jq -sRrf bf.jq
+# jq -sRrjf bf.jq hello.bf
 
-def skip_loop:
-  .input[.cursor:.cursor+1] as $c |
-  .cursor += 1 |
-  if $c == "[" then .depth += 1 | skip_loop
-  elif $c == "]" then .depth -= 1 | if .saved_depth > .depth then . else skip_loop end
-  elif $c == "" then error("unmatching loop")
-  else skip_loop
-  end;
-
-def backward_loop:
-  .input[.cursor:.cursor+1] as $c |
-  .cursor -= 1 |
-  if $c == "[" then .depth -= 1 | if .saved_depth >= .depth then .cursor += 1 else backward_loop end
-  elif $c == "]" then .depth += 1 | backward_loop
-  elif .cursor < 0 then error("unmatching loop")
-  else backward_loop
-  end;
-
-{ input: ., cursor: 0, memory: [], pointer: 0, depth: 0, output: [] } |
+try (
+  {
+    input: ., index: 0, length: length, jumps: [],
+    depth: 0, memory: [], pointer: 0, output: [],
+  } |
   until(
-    .cursor >= (.input | length);
-    .input[.cursor:.cursor+1] as $c |
-    .cursor += 1 |
-    if $c == ">" then .pointer += 1
-    elif $c == "<" then .pointer -= 1 | if .pointer < 0 then error("negative pointer") else . end
-    elif $c == "+" then .memory[.pointer] |= (. + 1) % 256
-    elif $c == "-" then .memory[.pointer] |= (. + 255) % 256
-    elif $c == "." then .output += [.memory[.pointer]]
-    elif $c == "," then error(", is not implemented")
-    elif $c == "[" then .depth += 1 | if .memory[.pointer] > 0 then . else .saved_depth = .depth | skip_loop end
-    elif $c == "]" then .depth -= 1 | .cursor -= 1 | .saved_depth = .depth | backward_loop
-    else .
+    .index >= .length;
+    .input[.index:.index+1] as $c |
+    .index += 1 |
+    if $c == ">" then
+      .pointer += 1
+    elif $c == "<" then
+      .pointer -= 1 |
+      if .pointer < 0 then
+        error("negative address access")
+      end
+    elif $c == "+" then
+      .memory[.pointer] |= (. + 1) % 256
+    elif $c == "-" then
+      .memory[.pointer] |= (. + 255) % 256
+    elif $c == "." then
+      .output += [.memory[.pointer] // 0]
+    elif $c == "," then
+      error(", is not implemented")
+    elif $c == "[" then
+      .jumps[.depth] = .index |
+      .depth += 1 |
+      if .memory[.pointer] <= 0 then
+        .saved_index = .index |
+        .saved_depth = .depth |
+        until(
+          .saved_depth > .depth or .index >= .length;
+          .input[.index:.index+1] as $c |
+          .index += 1 |
+          if $c == "[" then
+            .depth += 1
+          elif $c == "]" then
+            .depth -= 1
+          else
+            .
+          end
+        ) |
+        .jumps = .jumps[:.depth]
+      end
+    elif $c == "]" then
+      .depth -= 1 |
+      if .jumps[.depth] | not then
+        error("unmatched ] at byte \(.index)")
+      elif .memory[.pointer] > 0 then
+        .index = .jumps[.depth] |
+        .depth += 1
+      else
+        .jumps = .jumps[:.depth]
+      end
+    else
+      .
     end
-  ) | .output | implode
+  ) |
+  if .jumps != [] then
+    error("unmatched [ at byte \(.jumps[-1])")
+  end |
+  .output | implode
+) catch ("bf: \(.)\n" | halt_error(1))
