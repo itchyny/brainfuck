@@ -158,8 +158,8 @@ void execute(const std::vector<int> codes)
         pointer += c >> offset;
         if (pointer < 0)
           throw std::runtime_error("negative address access");
-        while (pointer >= memory.size())
-          memory.push_back(0);
+        if (pointer >= memory.size())
+          memory.resize(pointer + 1);
         break;
       case bf_putc:
         if (std::putchar(memory[pointer]) == EOF)
@@ -189,8 +189,8 @@ void execute(const std::vector<int> codes)
         int dest = pointer + (c >> offset);
         if (dest < 0)
           throw std::runtime_error("negative address access");
-        while (dest >= memory.size())
-          memory.push_back(0);
+        if (dest >= memory.size())
+          memory.resize(dest + 1);
         memory[dest] += memory[pointer];
         break;
     }
