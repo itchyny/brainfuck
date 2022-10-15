@@ -92,19 +92,29 @@ const std::vector<int> parse(const std::string source)
       case ']':
         if (jmps.size() == 0)
           throw std::runtime_error(format("unmatched ] at byte {}", i + 1));
-        int l = codes.size();
-        if (jmps.back() == l-2 && codes[l-1] == (bf_incr | -(1 << offset))) {
-          codes.resize(jmps.back());
-          codes.push_back(bf_setz);
-        } else if (jmps.back() == l-5 &&
-            codes[l-4] == (bf_incr |-(1 << offset)) && (codes[l-3]&mask) == bf_next &&
-            codes[l-2] == (bf_incr |1 << offset) && (codes[l-1]&mask) == bf_next &&
+        int j = jmps.back(), l = codes.size();
+        if (j == l-2 && codes[l-1] == (bf_incr | -(1 << offset))) {
+          codes[j] = bf_setz;
+          codes.resize(j + 1);
+        } else if (j == l-5 &&
+            codes[l-4] == (bf_incr | -(1 << offset)) && (codes[l-3] & mask) == bf_next &&
+            codes[l-2] == (bf_incr | 1 << offset) && (codes[l-1] & mask) == bf_next &&
             (codes[l-3] >> offset) + (codes[l-1] >> offset) == 0) {
-          codes.resize(jmps.back());
-          codes.push_back(bf_move | codes[l-3]&~mask);
+          codes[j] = bf_move | codes[l-3] & ~mask;
+          codes[j+1] = bf_setz;
+          codes.resize(j + 2);
+        } else if (j == l-7 &&
+            codes[l-6] == (bf_incr | -(1 << offset)) && (codes[l-5] & mask) == bf_next &&
+            codes[l-4] == (bf_incr | 1 << offset) && (codes[l-3] & mask) == bf_next &&
+            codes[l-2] == (bf_incr | 1 << offset) && (codes[l-1] & mask) == bf_next &&
+            (codes[l-5] >> offset) + (codes[l-3] >> offset) + (codes[l-1] >> offset) == 0) {
+          codes[j] = bf_move | codes[l-5] & ~mask;
+          codes[j+1] = bf_move | -(codes[l-1] & ~mask);
+          codes[j+2] = bf_setz;
+          codes.resize(j + 3);
         } else {
-          codes[jmps.back()] |= l << offset;
-          codes.push_back(bf_jmpnz | jmps.back() << offset);
+          codes[j] |= l << offset;
+          codes.push_back(bf_jmpnz | j << offset);
         }
         jmps.pop_back();
         break;
@@ -182,7 +192,6 @@ void execute(const std::vector<int> codes)
         while (dest >= memory.size())
           memory.push_back(0);
         memory[dest] += memory[pointer];
-        memory[pointer] = 0;
         break;
     }
   }

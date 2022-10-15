@@ -80,7 +80,13 @@ func parse(source []byte) ([]int, error) {
 				codes[l-4] == incr|-1<<offset && codes[l-3]&mask == next &&
 				codes[l-2] == incr|1<<offset && codes[l-1]&mask == next &&
 				codes[l-3]>>offset+codes[l-1]>>offset == 0 {
-				codes = append(codes[:j], move|codes[l-3]&^mask)
+				codes = append(codes[:j], move|codes[l-3]&^mask, setz)
+			} else if j == l-7 &&
+				codes[l-6] == incr|-1<<offset && codes[l-5]&mask == next &&
+				codes[l-4] == incr|1<<offset && codes[l-3]&mask == next &&
+				codes[l-2] == incr|1<<offset && codes[l-1]&mask == next &&
+				codes[l-5]>>offset+codes[l-3]>>offset+codes[l-1]>>offset == 0 {
+				codes = append(codes[:j], move|codes[l-5]&^mask, move|-(codes[l-1]&^mask), setz)
 			} else {
 				codes[j] |= l << offset
 				codes = append(codes, jmpnz|j<<offset)
@@ -154,7 +160,6 @@ func execute(codes []int) error {
 				memory = append(memory, 0)
 			}
 			memory[dest] += memory[pointer]
-			memory[pointer] = 0
 		}
 	}
 	return nil
