@@ -13,6 +13,7 @@ const std::string read_all(std::istream &in);
 const std::string read_file(const char* name);
 const std::vector<int> parse(const std::string source);
 void add(std::vector<int>& codes, const int code, const int diff);
+bool is_mults(const std::vector<int>& codes, const int start);
 void execute(const std::vector<int> codes);
 
 int main(const int argc, const char* argv[])
@@ -51,9 +52,10 @@ const int bf_getc = 3;  // ,
 const int bf_jmpz = 4;  // [
 const int bf_jmpnz = 5; // ]
 const int bf_setz = 6;  // [-]
-const int bf_move = 7;  // [->+<]
+const int bf_mult = 7;  // [->+>++<<]
 const int offset = 3;
 const int mask = (1 << offset) - 1;
+const int offset_mult = offset + 8;
 
 const std::string format(const char* fmt, const int i) // TODO: use std::format
 {
@@ -93,25 +95,16 @@ const std::vector<int> parse(const std::string source)
         if (jmps.size() == 0)
           throw std::runtime_error(format("unmatched ] at byte {}", i + 1));
         int j = jmps.back(), l = codes.size();
-        if (j == l-2 && codes[l-1] == (bf_incr | -(1 << offset))) {
+        if (j+2 == l && codes[j+1] == (bf_incr | -(1 << offset))) {
           codes[j] = bf_setz;
-          codes.resize(j + 1);
-        } else if (j == l-5 &&
-            codes[l-4] == (bf_incr | -(1 << offset)) && (codes[l-3] & mask) == bf_next &&
-            codes[l-2] == (bf_incr | 1 << offset) && (codes[l-1] & mask) == bf_next &&
-            (codes[l-3] >> offset) + (codes[l-1] >> offset) == 0) {
-          codes[j] = bf_move | codes[l-3] & ~mask;
-          codes[j+1] = bf_setz;
-          codes.resize(j + 2);
-        } else if (j == l-7 &&
-            codes[l-6] == (bf_incr | -(1 << offset)) && (codes[l-5] & mask) == bf_next &&
-            codes[l-4] == (bf_incr | 1 << offset) && (codes[l-3] & mask) == bf_next &&
-            codes[l-2] == (bf_incr | 1 << offset) && (codes[l-1] & mask) == bf_next &&
-            (codes[l-5] >> offset) + (codes[l-3] >> offset) + (codes[l-1] >> offset) == 0) {
-          codes[j] = bf_move | codes[l-5] & ~mask;
-          codes[j+1] = bf_move | -(codes[l-1] & ~mask);
-          codes[j+2] = bf_setz;
-          codes.resize(j + 3);
+          codes.resize(j+1);
+        } else if (j+2 < l && (l-j)%2 == 1 && is_mults(codes, j)) {
+          for (int k = j+2, p = 0; k < l-1; j += 1, k += 2) {
+            codes[j] = bf_mult | (p += codes[k] >> offset) << offset_mult
+              | int(uint8_t(codes[k+1] >> offset)) << offset;
+          }
+          codes[j] = bf_setz;
+          codes.resize(j+1);
         } else {
           codes[j] |= l << offset;
           codes.push_back(bf_jmpnz | j << offset);
@@ -142,6 +135,20 @@ void add(std::vector<int>& codes, const int code, const int diff)
     codes.push_back(code | diff << offset);
   else
     codes.back() += diff << offset;
+}
+
+bool is_mults(const std::vector<int>& codes, const int start) {
+  int p = 0;
+  for (int i = 0, k = start+1; k < codes.size(); i += 1, k += 2) {
+    if ((codes[k] & mask) == bf_incr &&
+        (i > 0 || (codes[k] >> offset) == -1) &&
+        (codes[k+1] & mask) == bf_next) {
+      p += codes[k+1] >> offset;
+    } else {
+      return false;
+    }
+  }
+  return p == 0;
 }
 
 void execute(const std::vector<int> codes)
@@ -185,13 +192,15 @@ void execute(const std::vector<int> codes)
       case bf_setz:
         memory[pointer] = 0;
         break;
-      case bf_move:
-        int dest = pointer + (c >> offset);
-        if (dest < 0)
-          throw std::runtime_error("negative address access");
-        if (dest >= memory.size())
-          memory.resize(dest + 1);
-        memory[dest] += memory[pointer];
+      case bf_mult:
+        if (uint8_t v = memory[pointer]; v != 0) {
+          int dest = pointer + (c >> offset_mult);
+          if (dest < 0)
+            throw std::runtime_error("negative address access");
+          if (dest >= memory.size())
+            memory.resize(dest + 1);
+          memory[dest] += v * uint8_t(c >> offset);
+        }
         break;
     }
   }

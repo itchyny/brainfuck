@@ -28,9 +28,10 @@ const GETC: i64 = 3; // ,
 const JMPZ: i64 = 4; // [
 const JMPNZ: i64 = 5; // ]
 const SETZ: i64 = 6; // [-]
-const MOVE: i64 = 7; // [->+<]
+const MULT: i64 = 7; // [->+>++<<]
 const OFFSET: i64 = 3;
 const MASK: i64 = (1 << OFFSET) - 1;
+const OFFSET_MULT: i64 = OFFSET + 8;
 
 fn parse(source: String) -> Result<Vec<i64>, String> {
     let mut codes: Vec<i64> = Vec::new();
@@ -50,35 +51,37 @@ fn parse(source: String) -> Result<Vec<i64>, String> {
             ']' => {
                 if let Some(&j) = jmps.last() {
                     let l = codes.len();
-                    if j == l - 2 && codes[l - 1] == INCR | (-1 << OFFSET) {
+                    if j + 2 == l && codes[j + 1] == INCR | (-1 << OFFSET) {
                         codes[j] = SETZ;
                         codes.resize(j + 1, 0);
-                    } else if j == l - 5
-                        && codes[l - 4] == INCR | (-1 << OFFSET)
-                        && codes[l - 3] & MASK == NEXT
-                        && codes[l - 2] == INCR | (1 << OFFSET)
-                        && codes[l - 1] & MASK == NEXT
-                        && (codes[l - 3] >> OFFSET) + (codes[l - 1] >> OFFSET) == 0
+                    } else if j + 2 < l
+                        && (l - j) % 2 == 1
+                        && codes[j + 1..]
+                            .chunks(2)
+                            .enumerate()
+                            .try_fold(0, |p, (i, cs)| {
+                                if cs[0] & MASK == INCR
+                                    && (i > 0 || cs[0] >> OFFSET == -1)
+                                    && cs[1] & MASK == NEXT
+                                {
+                                    Some(p + (cs[1] >> OFFSET))
+                                } else {
+                                    None
+                                }
+                            })
+                            == Some(0)
                     {
-                        codes[j] = MOVE | (codes[l - 3] & !MASK);
-                        codes[j + 1] = SETZ;
-                        codes.resize(j + 2, 0);
-                    } else if j == l - 7
-                        && codes[l - 6] == INCR | (-1 << OFFSET)
-                        && codes[l - 5] & MASK == NEXT
-                        && codes[l - 4] == INCR | (1 << OFFSET)
-                        && codes[l - 3] & MASK == NEXT
-                        && codes[l - 2] == INCR | (1 << OFFSET)
-                        && codes[l - 1] & MASK == NEXT
-                        && (codes[l - 5] >> OFFSET)
-                            + (codes[l - 3] >> OFFSET)
-                            + (codes[l - 1] >> OFFSET)
-                            == 0
-                    {
-                        codes[j] = MOVE | (codes[l - 5] & !MASK);
-                        codes[j + 1] = MOVE | -(codes[l - 1] & !MASK);
-                        codes[j + 2] = SETZ;
-                        codes.resize(j + 3, 0);
+                        let mut p: i64 = 0;
+                        let mut j = j;
+                        for k in (j + 2..l - 1).step_by(2) {
+                            p += codes[k] >> OFFSET;
+                            codes[j] = MULT
+                                | p << OFFSET_MULT
+                                | (((codes[k + 1] >> OFFSET) as u8) as i64) << OFFSET;
+                            j += 1;
+                        }
+                        codes[j] = SETZ;
+                        codes.resize(j + 1, 0);
                     } else {
                         codes[j] |= (l as i64) << OFFSET;
                         codes.push(JMPNZ | ((j as i64) << OFFSET));
@@ -163,15 +166,19 @@ fn execute(codes: Vec<i64>) -> Result<(), String> {
             SETZ => {
                 memory[pointer] = 0;
             }
-            MOVE => {
-                let dest = pointer as i64 + (c >> OFFSET);
-                if dest < 0 {
-                    return Err("negative address access".to_string());
+            MULT => {
+                let v = memory[pointer];
+                if v != 0 {
+                    let dest = pointer as i64 + (c >> OFFSET_MULT);
+                    if dest < 0 {
+                        return Err("negative address access".to_string());
+                    }
+                    let dest = dest as usize;
+                    if dest >= memory.len() {
+                        memory.resize(dest + 1, 0);
+                    }
+                    memory[dest] = memory[dest].wrapping_add(v.wrapping_mul((c >> OFFSET) as u8));
                 }
-                if dest as usize >= memory.len() {
-                    memory.resize(dest as usize + 1, 0);
-                }
-                memory[dest as usize] = memory[dest as usize].wrapping_add(memory[pointer]);
             }
             _ => {}
         }

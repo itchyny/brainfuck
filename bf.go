@@ -37,16 +37,17 @@ func run(args []string) error {
 }
 
 const (
-	incr   = iota // + -
-	next          // > <
-	putc          // .
-	getc          // ,
-	jmpz          // [
-	jmpnz         // ]
-	setz          // [-]
-	move          // [->+<]
-	offset = 3
-	mask   = 1<<offset - 1
+	incr        = 0 // + -
+	next        = 1 // > <
+	putc        = 2 // .
+	getc        = 3 // ,
+	jmpz        = 4 // [
+	jmpnz       = 5 // ]
+	setz        = 6 // [-]
+	mult        = 7 // [->+>++<<]
+	offset      = 3
+	mask        = 1<<offset - 1
+	offset_mult = offset + 8
 )
 
 func parse(source []byte) ([]int, error) {
@@ -73,20 +74,16 @@ func parse(source []byte) ([]int, error) {
 			if len(jmps) == 0 {
 				return nil, fmt.Errorf("unmatched ] at byte %d", i+1)
 			}
-			if j, l := jmps[len(jmps)-1], len(codes); j == l-2 &&
-				codes[l-1] == incr|-1<<offset {
+			if j, l := jmps[len(jmps)-1], len(codes); j+2 == l &&
+				codes[j+1] == incr|-1<<offset {
 				codes = append(codes[:j], setz)
-			} else if j == l-5 &&
-				codes[l-4] == incr|-1<<offset && codes[l-3]&mask == next &&
-				codes[l-2] == incr|1<<offset && codes[l-1]&mask == next &&
-				codes[l-3]>>offset+codes[l-1]>>offset == 0 {
-				codes = append(codes[:j], move|codes[l-3]&^mask, setz)
-			} else if j == l-7 &&
-				codes[l-6] == incr|-1<<offset && codes[l-5]&mask == next &&
-				codes[l-4] == incr|1<<offset && codes[l-3]&mask == next &&
-				codes[l-2] == incr|1<<offset && codes[l-1]&mask == next &&
-				codes[l-5]>>offset+codes[l-3]>>offset+codes[l-1]>>offset == 0 {
-				codes = append(codes[:j], move|codes[l-5]&^mask, move|-(codes[l-1]&^mask), setz)
+			} else if j+2 < l && (l-j)%2 == 1 && isMults(codes, j) {
+				for k, p := j+2, 0; k < l-1; j, k = j+1, k+2 {
+					p += codes[k] >> offset
+					codes[j] = mult | p<<offset_mult | int(byte(codes[k+1]>>offset))<<offset
+				}
+				codes[j] = setz
+				codes = codes[:j+1]
 			} else {
 				codes[j] |= l << offset
 				codes = append(codes, jmpnz|j<<offset)
@@ -115,6 +112,20 @@ func add(codes []int, code int, diff int) []int {
 	}
 	codes[len(codes)-1] += diff << offset
 	return codes
+}
+
+func isMults(codes []int, start int) bool {
+	var p int
+	for i, k := 0, start+1; k < len(codes); i, k = i+1, k+2 {
+		if codes[k]&mask == incr &&
+			(i > 0 || codes[k]>>offset == -1) &&
+			codes[k+1]&mask == next {
+			p += codes[k+1] >> offset
+		} else {
+			return false
+		}
+	}
+	return p == 0
 }
 
 func execute(codes []int) error {
@@ -151,15 +162,17 @@ func execute(codes []int) error {
 			}
 		case setz:
 			memory[pointer] = 0
-		case move:
-			dest := pointer + c>>offset
-			if dest < 0 {
-				return errors.New("negative address access")
+		case mult:
+			if v := memory[pointer]; v != 0 {
+				dest := pointer + c>>offset_mult
+				if dest < 0 {
+					return errors.New("negative address access")
+				}
+				for dest >= len(memory) {
+					memory = append(memory, 0)
+				}
+				memory[dest] += v * byte(c>>offset)
 			}
-			for dest >= len(memory) {
-				memory = append(memory, 0)
-			}
-			memory[dest] += memory[pointer]
 		}
 	}
 	return nil
