@@ -1,45 +1,71 @@
--- Brainfuck interpreter in Haskell
-import Data.Char (chr, ord)
+{-# LANGUAGE LambdaCase #-}
 import Control.Monad (void)
-import Control.Arrow (first, app, (***), (>>>))
+import Data.Bifunctor (second)
+import Data.Char (chr, ord)
+import Data.Word (Word8)
+import System.Environment (getArgs)
+import System.Exit (exitFailure, exitSuccess)
+import System.IO (BufferMode(..), hPutStrLn, hSetBinaryMode,
+                  hSetBuffering, stderr, stdin, stdout)
+import System.IO.Error (catchIOError, isEOFError)
 
-data BF = Incr | Decr | Next | Prev | Put | Get | While [BF]
-type State = ([Int], Int, [Int])
+name :: String
+name = "bf"
 
-(<>>) :: a -> ([a], b) -> ([a], b)
-(<>>) = first . (:)
+abort :: String -> IO a
+abort message =
+  hPutStrLn stderr (name ++ ": " ++ message) >> exitFailure
 
-parse :: String -> [BF]
-parse = fst . parse'
+data BF = Incr | Decr | Next | Prev | Putc | Getc | While [BF]
+
+parse :: String -> IO [BF]
+parse source = parse' source 0 >>= \case
+  (_, Nothing, codes) -> return codes
+  (_, Just i, _)      -> abort $ "unmatched ] at byte " ++ show i
   where
-    parse' :: String -> ([BF], String)
-    parse' ('+':bs) = Incr <>> parse' bs
-    parse' ('-':bs) = Decr <>> parse' bs
-    parse' ('>':bs) = Next <>> parse' bs
-    parse' ('<':bs) = Prev <>> parse' bs
-    parse' ('.':bs) = Put <>> parse' bs
-    parse' (',':bs) = Get <>> parse' bs
-    parse' ('[':bs) = app $ ((<>>) . While *** parse') (parse' bs)
-    parse' (']':bs) = ([], bs)
-    parse' (_:bs)   = parse' bs
-    parse' []       = ([], [])
+    parse' :: String -> Int -> IO (String, Maybe Int, [BF])
+    parse' ""       i = return ("", Nothing, [])
+    parse' ('+':bs) i = second (Incr:) <$> parse' bs (i + 1)
+    parse' ('-':bs) i = second (Decr:) <$> parse' bs (i + 1)
+    parse' ('>':bs) i = second (Next:) <$> parse' bs (i + 1)
+    parse' ('<':bs) i = second (Prev:) <$> parse' bs (i + 1)
+    parse' ('.':bs) i = second (Putc:) <$> parse' bs (i + 1)
+    parse' (',':bs) i = second (Getc:) <$> parse' bs (i + 1)
+    parse' ('[':bs) i = parse' bs (i + 1) >>= \case
+      (bs, Just i, cs) -> second (While cs:) <$> parse' bs i
+      _                -> abort $ "unmatched [ at byte " ++ show (i + 1)
+    parse' (']':bs) i = return (bs, Just (i + 1), [])
+    parse' (_:bs)   i = parse' bs (i + 1)
 
-run :: [BF] -> IO ()
-run = void . flip run' ([], 0, [])
+type State = ([Word8], Word8, [Word8])
+
+execute :: [BF] -> IO ()
+execute codes = void $ execute' codes ([], 0, [])
   where
-    run' :: [BF] -> State -> IO State
-    run' (Incr:bs) (xs, x, ys)    = run' bs (xs, x + 1, ys)
-    run' (Decr:bs) (xs, x, ys)    = run' bs (xs, x - 1, ys)
-    run' (Next:bs) (xs, x, [])    = run' bs (x:xs, 0, [])
-    run' (Next:bs) (xs, x, y:ys)  = run' bs (x:xs, y, ys)
-    run' (Prev:bs) s@([] , _, _)  = run' bs s
-    run' (Prev:bs) (x:xs, y, ys)  = run' bs (xs, x, y:ys)
-    run' (While _:bs) s@(_, 0, _) = run' bs s
-    run' bbs@(While bs:_) s       = run' bs s >>= run' bbs
-    run' (Put:bs) s@(_, x, _)     = putChar (chr x) >> run' bs s
-    run' (Get:bs) (xs, _, ys)     = getChar >>= \x -> run' bs (xs, ord x, ys)
-    run' [] s                     = return s
+    execute' :: [BF] -> State -> IO State
+    execute' [] s                     = return s
+    execute' (Incr:bs) (xs, x, ys)    = execute' bs (xs, x + 1, ys)
+    execute' (Decr:bs) (xs, x, ys)    = execute' bs (xs, x - 1, ys)
+    execute' (Next:bs) (xs, x, [])    = execute' bs (x:xs, 0, [])
+    execute' (Next:bs) (xs, x, y:ys)  = execute' bs (x:xs, y, ys)
+    execute' (Prev:bs) (x:xs, y, ys)  = execute' bs (xs, x, y:ys)
+    execute' (Prev:bs) ([], _, _)     = abort "negative address access"
+    execute' (While _:bs) s@(_, 0, _) = execute' bs s
+    execute' cs@(While bs:_) s        = execute' bs s >>= execute' cs
+    execute' (Putc:bs) s@(_, x, _)    =
+      (putChar (chr (fromIntegral x)) >> execute' bs s)
+        `catchIOError` \e -> abort (show e)
+    execute' (Getc:bs) s@(xs, _, ys)  =
+      (getChar >>= \x -> execute' bs (xs, fromIntegral (ord x), ys))
+        `catchIOError` \case e | isEOFError e -> exitSuccess
+                               | otherwise    -> abort (show e)
 
 main :: IO ()
-main = readFile "hello.bf" >>= (parse >>> run)
-
+main = do
+  hSetBinaryMode stdin True
+  hSetBinaryMode stdout True
+  hSetBuffering stdout NoBuffering
+  getArgs
+    >>= \case [] -> getContents; file:_ -> readFile file
+    >>= parse
+    >>= execute
