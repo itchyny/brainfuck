@@ -36,6 +36,7 @@ test_file() {
     diff <($BF "$file" <<<"$input" 2>&1) <(printf '%b' "$want")
 }
 
+test_code '+' ''
 test_code '.' '\x00'
 test_code '+++++++++.' '\t'
 test_code '+++---+++---+++.' '\x03'
@@ -55,18 +56,18 @@ test_code '+[-<+>]' 'bf: negative address access\n'
 test_exit_code '<' 1
 
 test_code '[' 'bf: unmatched [ at byte 1\n'
-test_code '+++[' 'bf: unmatched [ at byte 4\n'
-test_code '+[[-]+[>[-]' 'bf: unmatched [ at byte 7\n'
+test_code '++ [' 'bf: unmatched [ at byte 4\n'
+test_code '+ [[-]+[>[-]' 'bf: unmatched [ at byte 8\n'
 test_code ']' 'bf: unmatched ] at byte 1\n'
-test_code '+++]' 'bf: unmatched ] at byte 4\n'
-test_code '+[-]>+]>[-]' 'bf: unmatched ] at byte 7\n'
+test_code '++ ]' 'bf: unmatched ] at byte 4\n'
+test_code '+ [-]>+]>[-]' 'bf: unmatched ] at byte 8\n'
 test_exit_code '[' 1
 test_exit_code ']' 1
 
 test_file /dev/null ''
 test_file hello.bf 'Hello, world!'
 test_file fib.bf '1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233'
-if $BF <<<',' &>/dev/null; then
+if $BF <(echo ',') </dev/null &>/dev/null; then
   test_file cat.bf 'Hello, world!\n' 'Hello, world!'
   test_file cat.bf '１２３４５\n' '１２３４５'
 fi
