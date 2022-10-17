@@ -49,7 +49,7 @@ fn parse(source: String) -> Result<Vec<i64>, String> {
                 codes.push(JMPZ)
             }
             ']' => {
-                if let Some(&j) = jmps.last() {
+                if let Some(j) = jmps.pop() {
                     let l = codes.len();
                     if j + 2 == l && codes[j + 1] == INCR | (-1 << OFFSET) {
                         codes[j] = SETZ;
@@ -86,7 +86,6 @@ fn parse(source: String) -> Result<Vec<i64>, String> {
                         codes[j] |= (l as i64) << OFFSET;
                         codes.push(JMPNZ | ((j as i64) << OFFSET));
                     }
-                    jmps.pop();
                 } else {
                     return Err(format!("unmatched ] at byte {}", i + 1));
                 }
