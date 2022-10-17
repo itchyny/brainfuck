@@ -57,7 +57,7 @@ execute codes = void $ execute' codes ([], 0, [])
         `catchIOError` \e -> abort (show e)
     execute' (Getc:bs) s@(xs, _, ys)  =
       (getChar >>= \x -> execute' bs (xs, fromIntegral (ord x), ys))
-        `catchIOError` \case e | isEOFError e -> exitSuccess
+        `catchIOError` \case e | isEOFError e -> execute' bs (xs, maxBound, ys)
                                | otherwise    -> abort (show e)
 
 main :: IO ()

@@ -174,11 +174,8 @@ void execute(const std::vector<int> codes)
         break;
       case bf_getc:
         int ch;
-        if ((ch = std::getchar()) == EOF) {
-          if (!feof(stdin))
-            throw std::runtime_error("getchar failed");
-          return;
-        }
+        if ((ch = std::getchar()) == EOF && !feof(stdin))
+          throw std::runtime_error("getchar failed");
         memory[pointer] = ch;
         break;
       case bf_jmpz:

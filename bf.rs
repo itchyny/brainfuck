@@ -147,10 +147,10 @@ fn execute(codes: Vec<i64>) -> Result<(), String> {
             }
             GETC => {
                 if let Err(e) = std::io::stdin().read_exact(&mut memory[pointer..pointer + 1]) {
-                    if e.kind() == std::io::ErrorKind::UnexpectedEof {
-                        return Ok(());
+                    if e.kind() != std::io::ErrorKind::UnexpectedEof {
+                        return Err(e.to_string());
                     }
-                    return Err(e.to_string());
+                    memory[pointer] = u8::MAX;
                 };
             }
             JMPZ => {

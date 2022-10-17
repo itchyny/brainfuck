@@ -70,4 +70,6 @@ test_file fib.bf '1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233'
 if $BF <(echo ',') </dev/null &>/dev/null; then
   test_file cat.bf 'Hello, world!\n' 'Hello, world!'
   test_file cat.bf '１２３４５\n' '１２３４５'
+  test_file <(echo ',+[-.,+]+++++++++[>++++++++++>++++++++<<-]
+    >+.>---.++++++++++.---------.<++.') 'Test EOF.\n[EOF]' 'Test EOF.'
 fi

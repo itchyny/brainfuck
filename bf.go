@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 )
 
@@ -147,10 +148,10 @@ func execute(codes []int) error {
 			}
 		case getc:
 			if _, err := os.Stdin.Read(memory[pointer : pointer+1]); err != nil {
-				if err == io.EOF {
-					return nil
+				if err != io.EOF {
+					return err
 				}
-				return err
+				memory[pointer] = math.MaxUint8
 			}
 		case jmpz:
 			if memory[pointer] == 0 {
